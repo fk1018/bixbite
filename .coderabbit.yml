@@ -1,0 +1,149 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: "en-US"
+early_access: false
+enable_free_tier: true
+inheritance: false
+
+reviews:
+  profile: "chill"
+  request_changes_workflow: false
+
+  high_level_summary: true
+  high_level_summary_in_walkthrough: false
+  review_status: true
+  review_details: false
+
+  collapse_walkthrough: false
+  changed_files_summary: true
+  sequence_diagrams: false
+  estimate_code_review_effort: true
+  assess_linked_issues: false
+  related_issues: false
+  related_prs: false
+  suggested_labels: true
+  auto_apply_labels: false
+  suggested_reviewers: false
+  auto_assign_reviewers: false
+  in_progress_fortune: true
+  poem: true
+  enable_prompt_for_ai_agents: true
+
+  path_filters:
+    - "src/**"
+    - "tests/**"
+    - "Cargo.toml"
+    - "Cargo.lock"
+    - "README.md"
+    - "AGENTS.md"
+    - "TASKS.md"
+    - "project_handoff.md"
+    - "!.*/**"
+    - "!target/**"
+    - "!build/**"
+
+  path_instructions:
+    - path: "src/ast.rs"
+      instructions: |
+        Keep AST Sorbet-agnostic. No Sorbet strings or `sig` formatting here.
+        Types must use TypeRef from src/types.rs only.
+
+    - path: "src/types.rs"
+      instructions: |
+        Keep TypeRef neutral (no Sorbet-specific constructs). Prefer enums like Path/Boolean.
+        Emitters can map these to backend-specific types.
+
+    - path: "src/parser.rs"
+      instructions: |
+        Parser must remain backend-neutral. Emit Diagnostics with spans (line/col) from diagnostic.rs.
+        Do not generate Sorbet sig text here; output should be AST only.
+
+    - path: "src/lexer.rs"
+      instructions: |
+        Prefer tokenization with spans over regex parsing. Avoid panics; return Diagnostics on errors.
+
+    - path: "src/emitter/**"
+      instructions: |
+        Sorbet-specific logic is allowed only here (ruby_sorbet emitter).
+        Ensure deterministic output and generated header is present.
+
+    - path: "src/checker/**"
+      instructions: |
+        Checker backends live here. Keep `srb tc` integration isolated to sorbet checker only.
+        Default behavior should remain noop unless explicitly enabled.
+
+    - path: "src/commands/**"
+      instructions: |
+        Commands orchestrate pipeline only. No Sorbet formatting or type-checker specifics here.
+        Use Project + Emitter/TypeChecker traits.
+
+    - path: "src/diagnostic.rs"
+      instructions: |
+        Diagnostics must remain stable and JSON-serializable. Spans should include file + line/col.
+
+  auto_review:
+    enabled: true
+    drafts: false
+    auto_incremental_review: true
+    base_branches:
+      - dev
+      - main
+    ignore_title_keywords:
+      - "WIP"
+      - "wip"
+      - "draft"
+
+  pre_merge_checks:
+    custom_checks:
+      - name: "Sorbet stays at edges"
+        instructions: |
+          Reject PRs that introduce Sorbet-specific strings/types into src/ast.rs, src/types.rs, src/parser.rs, src/lexer.rs,
+          src/project.rs, or src/commands/**. Sorbet-specific logic must live ONLY in src/emitter/ruby_sorbet.rs and
+          src/checker/sorbet.rs.
+      - name: "No generated outputs committed"
+        instructions: |
+          Reject PRs that add files under build/** or target/**.
+
+    title:
+      mode: "warning"
+      requirements: "Prefer titles like: feat(parser): ..., fix(emitter): ..., refactor(project): ..."
+
+chat:
+  auto_reply: true
+  art: true
+  integrations:
+    jira:
+      usage: "disabled"
+    linear:
+      usage: "disabled"
+
+knowledge_base:
+  opt_out: false
+  web_search:
+    enabled: true
+  code_guidelines:
+    enabled: true
+    filePatterns:
+      - "AGENTS.md"
+      - "project_handoff.md"
+      - "TASKS.md"
+      - "README.md"
+  learnings:
+    scope: "local"
+  issues:
+    scope: "local"
+  pull_requests:
+    scope: "local"
+  mcp:
+    usage: "auto"
+
+code_generation:
+  unit_tests:
+    path_instructions:
+      - path: "src/**"
+        instructions: |
+          Prefer Rust unit tests with clear assertions. Add golden tests for emitted Ruby output when applicable.
+  docstrings:
+    path_instructions:
+      - path: "src/**"
+        instructions: |
+          Keep doc comments concise; focus on public APIs and module boundaries.
