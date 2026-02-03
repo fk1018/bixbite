@@ -1,16 +1,22 @@
-use crate::types::TypeRef;
+use crate::{diagnostic::DiagnosticReport, types::TypeRef};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CompilationUnit {
     pub source: String,
     pub typed_methods: Vec<TypedMethod>,
+    pub diagnostics: DiagnosticReport,
 }
 
 impl CompilationUnit {
-    pub fn from_source(source: String) -> Self {
+    pub fn from_source(
+        source: String,
+        typed_methods: Vec<TypedMethod>,
+        diagnostics: DiagnosticReport,
+    ) -> Self {
         Self {
             source,
-            typed_methods: Vec::new(),
+            typed_methods,
+            diagnostics,
         }
     }
 }
