@@ -1,6 +1,6 @@
 use std::ops::Range;
 
-use crate::diagnostic::{Pos, Span};
+use crate::diagnostic::{Diagnostic, DiagnosticReport, Pos, Severity, Span};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TokenKind {
@@ -36,14 +36,17 @@ pub struct TokenStream {
     source: String,
     tokens: Vec<Token>,
     file: String,
+    diagnostics: DiagnosticReport,
 }
 
 pub fn tokenize(source: &str, file: impl Into<String>) -> TokenStream {
     let mut tokens = Vec::new();
+    let mut diagnostics = DiagnosticReport::default();
     let mut index = 0;
     let mut line = 1;
     let mut col = 1;
     let bytes = source.as_bytes();
+    let file = file.into();
 
     let mut push_token =
         |kind: TokenKind, start: usize, end: usize, start_pos: Pos, end_pos: Pos| {
@@ -134,6 +137,7 @@ pub fn tokenize(source: &str, file: impl Into<String>) -> TokenStream {
                 let quote = ch;
                 let mut end = index + 1;
                 let mut end_col = col + 1;
+                let mut terminated = false;
                 while end < bytes.len() {
                     let next = bytes[end] as char;
                     if next == '\n' {
@@ -142,10 +146,21 @@ pub fn tokenize(source: &str, file: impl Into<String>) -> TokenStream {
                     end += 1;
                     end_col += 1;
                     if next == quote {
+                        terminated = true;
                         break;
                     }
                 }
-                let end_pos = Pos::new(line, end_col - 1);
+                let end_pos = Pos::new(line, end_col.saturating_sub(1));
+                if !terminated {
+                    diagnostics.diagnostics.push(Diagnostic {
+                        code: "BIX000".to_owned(),
+                        severity: Severity::Error,
+                        file: file.clone(),
+                        message: "Unterminated string literal.".to_owned(),
+                        span: Span::new(start_pos, end_pos),
+                        suggestion: Some("Add a closing quote.".to_owned()),
+                    });
+                }
                 push_token(TokenKind::StringLiteral, index, end, start_pos, end_pos);
                 index = end;
                 col = end_col;
@@ -211,6 +226,14 @@ pub fn tokenize(source: &str, file: impl Into<String>) -> TokenStream {
         }
 
         let end_pos = start_pos;
+        diagnostics.diagnostics.push(Diagnostic {
+            code: "BIX000".to_owned(),
+            severity: Severity::Error,
+            file: file.clone(),
+            message: format!("Unexpected character `{}`.", ch),
+            span: Span::new(start_pos, end_pos),
+            suggestion: None,
+        });
         push_token(TokenKind::Unknown, index, index + 1, start_pos, end_pos);
         index += 1;
         col += 1;
@@ -227,7 +250,8 @@ pub fn tokenize(source: &str, file: impl Into<String>) -> TokenStream {
     TokenStream {
         source: source.to_owned(),
         tokens,
-        file: file.into(),
+        file,
+        diagnostics,
     }
 }
 
@@ -244,7 +268,11 @@ impl TokenStream {
         &self.file
     }
 
-    pub fn into_parts(self) -> (String, Vec<Token>, String) {
-        (self.source, self.tokens, self.file)
+    pub fn diagnostics(&self) -> &DiagnosticReport {
+        &self.diagnostics
+    }
+
+    pub fn into_parts(self) -> (String, Vec<Token>, String, DiagnosticReport) {
+        (self.source, self.tokens, self.file, self.diagnostics)
     }
 }

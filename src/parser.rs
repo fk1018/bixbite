@@ -6,8 +6,8 @@ use crate::{
 };
 
 pub fn parse(tokens: TokenStream) -> CompilationUnit {
-    let (source, tokens, file) = tokens.into_parts();
-    let mut parser = Parser::new(source, tokens, file);
+    let (source, tokens, file, diagnostics) = tokens.into_parts();
+    let mut parser = Parser::new(source, tokens, file, diagnostics);
     parser.parse();
     CompilationUnit::from_source(parser.source, parser.typed_methods, parser.diagnostics)
 }
@@ -30,14 +30,19 @@ struct Parser {
 }
 
 impl Parser {
-    fn new(source: String, tokens: Vec<Token>, file: String) -> Self {
+    fn new(
+        source: String,
+        tokens: Vec<Token>,
+        file: String,
+        diagnostics: DiagnosticReport,
+    ) -> Self {
         Self {
             source,
             tokens,
             file,
             index: 0,
             typed_methods: Vec::new(),
-            diagnostics: DiagnosticReport::default(),
+            diagnostics,
         }
     }
 
