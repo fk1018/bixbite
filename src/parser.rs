@@ -166,9 +166,15 @@ impl Parser {
 
     fn parse_params(&mut self) -> Vec<ParsedParam> {
         let mut params = Vec::new();
-        while !self.is_at_end() && !self.matches(TokenKind::RParen) {
+        while !self.is_at_end()
+            && !self.matches(TokenKind::RParen)
+            && !self.matches(TokenKind::Newline)
+        {
             if self.matches(TokenKind::Comma) {
                 self.advance();
+                if self.matches(TokenKind::Newline) {
+                    break;
+                }
                 continue;
             }
 
@@ -176,6 +182,9 @@ impl Parser {
                 Some(token) => token,
                 None => {
                     self.skip_param();
+                    if self.matches(TokenKind::Newline) {
+                        break;
+                    }
                     continue;
                 }
             };
@@ -202,6 +211,9 @@ impl Parser {
 
             if self.matches(TokenKind::Comma) {
                 self.advance();
+                if self.matches(TokenKind::Newline) {
+                    break;
+                }
             }
         }
         params

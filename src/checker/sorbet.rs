@@ -1,4 +1,4 @@
-use std::{io::Read, process::Command, time::Duration};
+use std::{io::Read, process::Command, thread, time::Duration};
 
 use anyhow::Result;
 use wait_timeout::ChildExt;
@@ -28,20 +28,32 @@ impl TypeChecker for SorbetChecker {
 
         let report = match command_output {
             Ok(mut child) => {
-                let stdout = child.stdout.take();
-                let stderr = child.stderr.take();
+                let stdout_handle = {
+                    let stdout = child.stdout.take();
+                    thread::spawn(move || {
+                        let mut out = String::new();
+                        if let Some(mut handle) = stdout {
+                            let _ = handle.read_to_string(&mut out);
+                        }
+                        out
+                    })
+                };
+                let stderr_handle = {
+                    let stderr = child.stderr.take();
+                    thread::spawn(move || {
+                        let mut err = String::new();
+                        if let Some(mut handle) = stderr {
+                            let _ = handle.read_to_string(&mut err);
+                        }
+                        err
+                    })
+                };
                 let timeout = Duration::from_secs(30);
                 match child.wait_timeout(timeout)? {
                     Some(status) if status.success() => DiagnosticReport::default(),
                     Some(status) => {
-                        let mut out = String::new();
-                        let mut err = String::new();
-                        if let Some(mut handle) = stdout {
-                            let _ = handle.read_to_string(&mut out);
-                        }
-                        if let Some(mut handle) = stderr {
-                            let _ = handle.read_to_string(&mut err);
-                        }
+                        let out = stdout_handle.join().unwrap_or_default();
+                        let err = stderr_handle.join().unwrap_or_default();
                         let message = first_non_empty(&[
                             err,
                             out,
@@ -64,6 +76,8 @@ impl TypeChecker for SorbetChecker {
                     None => {
                         let _ = child.kill();
                         let _ = child.wait();
+                        let _ = stdout_handle.join();
+                        let _ = stderr_handle.join();
                         DiagnosticReport {
                             diagnostics: vec![Diagnostic {
                                 code: "BIX902".to_owned(),
