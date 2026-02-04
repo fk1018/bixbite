@@ -76,18 +76,35 @@ pub fn run(options: CheckOptions) -> Result<()> {
 }
 
 fn print_diagnostics(report: &DiagnosticReport, format: OutputFormat) -> Result<()> {
-    if report.diagnostics.is_empty() {
-        return Ok(());
-    }
-
     match format {
         OutputFormat::Human => {
+            if report.diagnostics.is_empty() {
+                return Ok(());
+            }
             report.print_human_stderr();
         }
         OutputFormat::Json => {
-            println!("{}", serde_json::to_string_pretty(report)?);
+            println!("{}", json_diagnostics(report)?);
         }
     }
 
     Ok(())
+}
+
+fn json_diagnostics(report: &DiagnosticReport) -> Result<String> {
+    Ok(serde_json::to_string_pretty(report)?)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn json_output_includes_empty_report() {
+        let report = DiagnosticReport::default();
+        let output = json_diagnostics(&report).expect("serialize diagnostics");
+        let value: serde_json::Value =
+            serde_json::from_str(&output).expect("parse json diagnostics");
+        assert_eq!(value["diagnostics"].as_array().map(Vec::len), Some(0));
+    }
 }

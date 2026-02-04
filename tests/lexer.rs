@@ -40,3 +40,18 @@ fn reports_unknown_character_and_propagates_to_parser() {
     assert_eq!(unit.diagnostics.diagnostics.len(), 1);
     assert_eq!(unit.diagnostics.diagnostics[0].code, "BIX000");
 }
+
+#[test]
+fn rejects_non_ascii_input_with_single_diagnostic() {
+    let source = "def café() -> String\n";
+    let tokens = lexer::tokenize(source, "src/non_ascii.bixb");
+    let diagnostics = tokens.diagnostics();
+
+    assert_eq!(diagnostics.diagnostics.len(), 1);
+    let diagnostic = &diagnostics.diagnostics[0];
+    assert_eq!(diagnostic.code, "BIX100");
+    assert_eq!(diagnostic.span.start.line, 1);
+    assert_eq!(diagnostic.span.start.col, 8);
+    assert_eq!(tokens.tokens().len(), 1);
+    assert_eq!(tokens.tokens()[0].kind, lexer::TokenKind::Eof);
+}

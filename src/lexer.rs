@@ -74,6 +74,9 @@ pub struct TokenStream {
 /// dot, equals, arrow, double colon), newlines, and an explicit end-of-file token. It records
 /// diagnostics for unterminated string literals and unexpected characters.
 ///
+/// Bixbite source files are ASCII-only. If a non-ASCII byte is encountered, the lexer emits a
+/// single diagnostic (`BIX100`) pointing at the offending position and stops tokenization.
+///
 /// # Examples
 ///
 /// ```
@@ -86,11 +89,46 @@ pub struct TokenStream {
 pub fn tokenize(source: &str, file: impl Into<String>) -> TokenStream {
     let mut tokens = Vec::new();
     let mut diagnostics = DiagnosticReport::default();
-    let mut index = 0;
-    let mut line = 1;
-    let mut col = 1;
     let bytes = source.as_bytes();
     let file = file.into();
+
+    let mut line = 1;
+    let mut col = 1;
+    for (index, byte) in bytes.iter().enumerate() {
+        if !byte.is_ascii() {
+            let pos = Pos::new(line, col);
+            diagnostics.diagnostics.push(Diagnostic {
+                code: "BIX100".to_owned(),
+                severity: Severity::Error,
+                file: file.clone(),
+                message: "Bixbite source files must be ASCII-only.".to_owned(),
+                span: Span::new(pos, pos),
+                suggestion: Some("Remove non-ASCII characters or replace with ASCII.".to_owned()),
+            });
+            tokens.push(Token {
+                kind: TokenKind::Eof,
+                lexeme: String::new(),
+                span: Span::new(pos, pos),
+                byte_range: index..index,
+            });
+            return TokenStream {
+                source: source.to_owned(),
+                tokens,
+                file,
+                diagnostics,
+            };
+        }
+        if *byte == b'\n' {
+            line += 1;
+            col = 1;
+        } else {
+            col += 1;
+        }
+    }
+
+    let mut index = 0;
+    line = 1;
+    col = 1;
 
     let mut push_token =
         |kind: TokenKind, start: usize, end: usize, start_pos: Pos, end_pos: Pos| {
