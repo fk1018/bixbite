@@ -4,6 +4,7 @@ use crate::{diagnostic::DiagnosticReport, project::Project};
 
 use super::TypeChecker;
 
+/// A checker backend that emits no diagnostics.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct NoopChecker;
 

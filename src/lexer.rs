@@ -2,35 +2,63 @@ use std::ops::Range;
 
 use crate::diagnostic::{Diagnostic, DiagnosticReport, Pos, Severity, Span};
 
+/// Token kinds recognized by the lexer.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TokenKind {
+    /// `def` keyword.
     Def,
+    /// `self` keyword.
     SelfKw,
+    /// Lowercase identifier (method/parameter names).
     Ident,
+    /// Uppercase identifier (constant/type name).
     Const,
+    /// `->` return type arrow.
     Arrow,
+    /// `:` type annotation separator.
     Colon,
+    /// `,` parameter separator.
     Comma,
+    /// `.` method receiver separator.
     Dot,
+    /// `(`.
     LParen,
+    /// `)`.
     RParen,
+    /// `=` default assignment.
     Eq,
+    /// `::` constant path separator.
     DoubleColon,
+    /// Quoted string literal.
     StringLiteral,
+    /// Numeric literal.
     Number,
+    /// Newline token (`\n`).
     Newline,
+    /// Unrecognized character token.
     Unknown,
+    /// End-of-file marker.
     Eof,
 }
 
+/// A single token with its lexeme and source span.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Token {
+    /// Kind of token recognized.
     pub kind: TokenKind,
+    /// Source substring for the token.
     pub lexeme: String,
+    /// Inclusive source span for the token.
     pub span: Span,
+    /// Byte range for the token within the source text.
     pub byte_range: Range<usize>,
 }
 
+/// Stream of tokens with associated source text and diagnostics.
+///
+/// Invariants:
+/// - Tokens are ordered as they appear in the input.
+/// - The final token is always `TokenKind::Eof`.
 #[derive(Debug, Clone)]
 pub struct TokenStream {
     source: String,
@@ -272,10 +300,12 @@ pub fn tokenize(source: &str, file: impl Into<String>) -> TokenStream {
 }
 
 impl TokenStream {
+    /// Returns the original source text for this token stream.
     pub fn source(&self) -> &str {
         &self.source
     }
 
+    /// Returns the ordered tokens produced by the lexer.
     pub fn tokens(&self) -> &[Token] {
         &self.tokens
     }

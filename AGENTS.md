@@ -16,31 +16,30 @@ Source of truth:
 
 ## Architecture rules (do not violate)
 
-- The AST and parser must remain backend-agnostic.
-- Core language types must remain neutral:
-  - Use `TypeRef` (e.g., Path, Boolean) in AST and typed IR.
-  - Do not embed backend-specific syntax or formatting into AST nodes.
+- Keep the AST and parser backend-agnostic.
+- Core language types remain neutral:
+  - Use `TypeRef` (e.g., `Path`, `Boolean`) in AST and typed IR.
+  - Do not embed backend-specific syntax or formatting in AST nodes.
 - All errors must flow through `Diagnostic` with spans.
-- Diagnostics must support machine-readable output (`--format json`) and human output.
-
-If you need a new backend later, it should be added by implementing the `Emitter` and/or `TypeChecker` traits without changing the parser/AST.
+- Diagnostics must support both machine-readable output (`--format json`) and human output.
+- New backends must be added by implementing the `Emitter` and/or `TypeChecker` traits without changing the parser/AST.
 
 ## Documentation rules
 
-Write professional Rust documentation focused on public APIs and invariants.
+Write professional Rust documentation focused on public APIs, invariants, and recovery behavior.
 
 Minimum standard:
-- Every `pub` struct/enum/trait/function in `src/` must have a `///` rustdoc comment explaining:
+- Every `pub` struct/enum/trait/function in `src/` must have a `///` rustdoc comment that explains:
   - what it represents/does,
-  - important invariants (what is guaranteed to be present/valid),
-  - and any error/recovery behavior (especially in parsing/checking).
+  - key invariants/guarantees (what is always present/valid),
+  - and error/recovery behavior where relevant (especially parsing/checking/diagnostics/project discovery).
 - Public data types should document fields either:
   - with `///` on each field, or
   - clearly in the type-level doc comment.
-- Avoid noise: do not comment obvious code. Prefer documenting “why” and “invariants” over “what the line does.”
+- Avoid noise: do not comment obvious code. Prefer documenting “why” and “invariants” over line-by-line narration.
 - Rustdoc examples must be consistent:
   - Use real doctests only if they compile in this crate.
-  - Otherwise use ```ignore``` with a clear illustrative snippet.
+  - Otherwise use ```ignore``` with a short illustrative snippet.
 
 Formatting and quality:
 - Run `cargo fmt` after changes.
