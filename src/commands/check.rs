@@ -5,7 +5,7 @@ use clap::ValueEnum;
 
 use crate::{
     checker::{noop::NoopChecker, TypeChecker},
-    diagnostic::{DiagnosticReport, Severity},
+    diagnostic::DiagnosticReport,
     emitter::ruby::RubyEmitter,
     project::Project,
 };
@@ -46,11 +46,22 @@ pub fn run(options: CheckOptions) -> Result<()> {
         bail!("`{}` checker reported errors", checker.name());
     }
 
-    println!(
-        "Checked {} file(s) with {} backend.",
-        summary.discovered_files,
-        checker.name()
-    );
+    match options.format {
+        OutputFormat::Human => {
+            println!(
+                "Checked {} file(s) with {} backend.",
+                summary.discovered_files,
+                checker.name()
+            );
+        }
+        OutputFormat::Json => {
+            eprintln!(
+                "Checked {} file(s) with {} backend.",
+                summary.discovered_files,
+                checker.name()
+            );
+        }
+    }
 
     Ok(())
 }
@@ -62,24 +73,7 @@ fn print_diagnostics(report: &DiagnosticReport, format: OutputFormat) -> Result<
 
     match format {
         OutputFormat::Human => {
-            for diagnostic in &report.diagnostics {
-                let severity = match diagnostic.severity {
-                    Severity::Error => "error",
-                    Severity::Warn => "warn",
-                };
-                println!(
-                    "{}:{}:{}: {} {} ({})",
-                    diagnostic.file,
-                    diagnostic.span.start.line,
-                    diagnostic.span.start.col,
-                    severity,
-                    diagnostic.message,
-                    diagnostic.code
-                );
-                if let Some(suggestion) = &diagnostic.suggestion {
-                    println!("  help: {suggestion}");
-                }
-            }
+            report.print_human_stderr();
         }
         OutputFormat::Json => {
             println!("{}", serde_json::to_string_pretty(report)?);

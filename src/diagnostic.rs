@@ -61,4 +61,25 @@ impl DiagnosticReport {
             .iter()
             .any(|diagnostic| diagnostic.severity == Severity::Error)
     }
+
+    pub fn print_human_stderr(&self) {
+        for diagnostic in &self.diagnostics {
+            let severity = match diagnostic.severity {
+                Severity::Error => "error",
+                Severity::Warn => "warn",
+            };
+            eprintln!(
+                "{}:{}:{}: {} {} ({})",
+                diagnostic.file,
+                diagnostic.span.start.line,
+                diagnostic.span.start.col,
+                severity,
+                diagnostic.message,
+                diagnostic.code
+            );
+            if let Some(suggestion) = &diagnostic.suggestion {
+                eprintln!("  help: {suggestion}");
+            }
+        }
+    }
 }

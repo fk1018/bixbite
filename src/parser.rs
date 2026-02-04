@@ -145,6 +145,13 @@ impl Parser {
         self.advance();
 
         if !self.matches(TokenKind::Arrow) {
+            self.emit_error(
+                "BIX100",
+                "Missing return type signature: expected `-> <Type>`.",
+                self.peek_span(),
+                None,
+            );
+            self.skip_to_newline();
             return;
         }
         self.advance();
