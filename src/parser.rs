@@ -5,6 +5,15 @@ use crate::{
     types::TypeRef,
 };
 
+/// Parse a token stream and produce a CompilationUnit representing the parsed source.
+///
+/// # Examples
+///
+/// ```
+/// // Construct a TokenStream from lexer/tokenizer output, then parse it:
+/// // let tokens = TokenStream::from_source("def foo(): -> Boolean {}");
+/// // let unit = parse(tokens);
+/// ```
 pub fn parse(tokens: TokenStream) -> CompilationUnit {
     let (source, tokens, file, diagnostics) = tokens.into_parts();
     let mut parser = Parser::new(source, tokens, file, diagnostics);
@@ -30,6 +39,24 @@ struct Parser {
 }
 
 impl Parser {
+    /// Constructs a new Parser for the given source, token stream, file path, and diagnostic report.
+    ///
+    /// The returned parser is ready to begin parsing at the start of the token stream with an empty
+    /// collection of typed methods.
+    ///
+    /// # Parameters
+    ///
+    /// - `diagnostics`: a `DiagnosticReport` to collect parsing errors and warnings.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let source = "def foo() -> Boolean {}".to_string();
+    /// let tokens = tokenize(&source); // assume `tokenize` produces Vec<Token>
+    /// let file = "src/lib.bix".to_string();
+    /// let diagnostics = DiagnosticReport::new();
+    /// let parser = Parser::new(source, tokens, file, diagnostics);
+    /// ```
     fn new(
         source: String,
         tokens: Vec<Token>,
