@@ -49,6 +49,8 @@ pub struct TokenStream {
 /// # Examples
 ///
 /// ```
+/// use bixbite::lexer::tokenize;
+///
 /// let src = "def foo = 42\n";
 /// let ts = tokenize(src, "example");
 /// assert!(!ts.tokens().is_empty());
@@ -283,12 +285,9 @@ impl TokenStream {
     /// # Examples
     ///
     /// ```
-    /// let ts = TokenStream {
-    ///     source: String::from(""),
-    ///     tokens: Vec::new(),
-    ///     file: String::from("test.bix"),
-    ///     diagnostics: DiagnosticReport::default(),
-    /// };
+    /// use bixbite::lexer::tokenize;
+    ///
+    /// let ts = tokenize("", "test.bix");
     /// assert_eq!(ts.file(), "test.bix");
     /// ```
     pub fn file(&self) -> &str {
@@ -300,6 +299,8 @@ impl TokenStream {
     /// # Examples
     ///
     /// ```
+    /// use bixbite::lexer::tokenize;
+    ///
     /// let ts = tokenize("", "file.rs");
     /// let diagnostics = ts.diagnostics();
     /// ```
@@ -315,6 +316,8 @@ impl TokenStream {
     /// # Examples
     ///
     /// ```
+    /// use bixbite::lexer::tokenize;
+    ///
     /// let ts = tokenize("let a = 1", "main.bix");
     /// let (source, tokens, file, diagnostics) = ts.into_parts();
     /// assert_eq!(source, "let a = 1");

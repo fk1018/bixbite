@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 
 use crate::{
     diagnostic::Severity,
-    emitter::{ruby_sorbet::RubySorbetEmitter, Emitter},
+    emitter::{ruby::RubyEmitter, Emitter},
     lexer, parser,
     project::Project,
 };
@@ -18,7 +18,7 @@ pub struct BuildSummary {
 pub fn run() -> Result<()> {
     let project_root = env::current_dir().context("failed to determine current directory")?;
     let project = Project::load(project_root)?;
-    let emitter = RubySorbetEmitter;
+    let emitter = RubyEmitter;
     let summary = build_project(&project, &emitter)?;
 
     println!(

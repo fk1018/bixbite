@@ -50,12 +50,16 @@ impl Parser {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
+    /// use bixbite::diagnostic::DiagnosticReport;
+    /// use bixbite::lexer::tokenize;
+    /// use bixbite::parser::Parser;
+    ///
     /// let source = "def foo() -> Boolean {}".to_string();
-    /// let tokens = tokenize(&source); // assume `tokenize` produces Vec<Token>
+    /// let tokens = tokenize(&source, "src/lib.bix");
     /// let file = "src/lib.bix".to_string();
-    /// let diagnostics = DiagnosticReport::new();
-    /// let parser = Parser::new(source, tokens, file, diagnostics);
+    /// let diagnostics = DiagnosticReport::default();
+    /// let parser = Parser::new(source, tokens.into_parts().1, file, diagnostics);
     /// ```
     fn new(
         source: String,

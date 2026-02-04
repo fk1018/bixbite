@@ -1,5 +1,4 @@
 pub mod noop;
-pub mod sorbet;
 #[path = "trait.rs"]
 pub mod type_checker_trait;
 
