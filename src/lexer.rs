@@ -1,6 +1,6 @@
 use std::ops::Range;
 
-use crate::diagnostic::{Pos, Span};
+use crate::diagnostic::{Diagnostic, DiagnosticReport, Pos, Severity, Span};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TokenKind {
@@ -36,14 +36,31 @@ pub struct TokenStream {
     source: String,
     tokens: Vec<Token>,
     file: String,
+    diagnostics: DiagnosticReport,
 }
 
+/// Produce a sequence of lexical tokens and diagnostics from the given source text.
+///
+/// The lexer recognizes keywords (`def`, `self`), identifiers, constants (identifiers starting with
+/// an uppercase letter), numeric literals, string literals, punctuation (parentheses, colon, comma,
+/// dot, equals, arrow, double colon), newlines, and an explicit end-of-file token. It records
+/// diagnostics for unterminated string literals and unexpected characters.
+///
+/// # Examples
+///
+/// ```
+/// let src = "def foo = 42\n";
+/// let ts = tokenize(src, "example");
+/// assert!(!ts.tokens().is_empty());
+/// ```
 pub fn tokenize(source: &str, file: impl Into<String>) -> TokenStream {
     let mut tokens = Vec::new();
+    let mut diagnostics = DiagnosticReport::default();
     let mut index = 0;
     let mut line = 1;
     let mut col = 1;
     let bytes = source.as_bytes();
+    let file = file.into();
 
     let mut push_token =
         |kind: TokenKind, start: usize, end: usize, start_pos: Pos, end_pos: Pos| {
@@ -134,6 +151,7 @@ pub fn tokenize(source: &str, file: impl Into<String>) -> TokenStream {
                 let quote = ch;
                 let mut end = index + 1;
                 let mut end_col = col + 1;
+                let mut terminated = false;
                 while end < bytes.len() {
                     let next = bytes[end] as char;
                     if next == '\n' {
@@ -142,10 +160,21 @@ pub fn tokenize(source: &str, file: impl Into<String>) -> TokenStream {
                     end += 1;
                     end_col += 1;
                     if next == quote {
+                        terminated = true;
                         break;
                     }
                 }
-                let end_pos = Pos::new(line, end_col - 1);
+                let end_pos = Pos::new(line, end_col.saturating_sub(1));
+                if !terminated {
+                    diagnostics.diagnostics.push(Diagnostic {
+                        code: "BIX000".to_owned(),
+                        severity: Severity::Error,
+                        file: file.clone(),
+                        message: "Unterminated string literal.".to_owned(),
+                        span: Span::new(start_pos, end_pos),
+                        suggestion: Some("Add a closing quote.".to_owned()),
+                    });
+                }
                 push_token(TokenKind::StringLiteral, index, end, start_pos, end_pos);
                 index = end;
                 col = end_col;
@@ -211,6 +240,14 @@ pub fn tokenize(source: &str, file: impl Into<String>) -> TokenStream {
         }
 
         let end_pos = start_pos;
+        diagnostics.diagnostics.push(Diagnostic {
+            code: "BIX000".to_owned(),
+            severity: Severity::Error,
+            file: file.clone(),
+            message: format!("Unexpected character `{}`.", ch),
+            span: Span::new(start_pos, end_pos),
+            suggestion: None,
+        });
         push_token(TokenKind::Unknown, index, index + 1, start_pos, end_pos);
         index += 1;
         col += 1;
@@ -227,7 +264,8 @@ pub fn tokenize(source: &str, file: impl Into<String>) -> TokenStream {
     TokenStream {
         source: source.to_owned(),
         tokens,
-        file: file.into(),
+        file,
+        diagnostics,
     }
 }
 
@@ -240,11 +278,49 @@ impl TokenStream {
         &self.tokens
     }
 
+    /// The file identifier associated with this token stream.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let ts = TokenStream {
+    ///     source: String::from(""),
+    ///     tokens: Vec::new(),
+    ///     file: String::from("test.bix"),
+    ///     diagnostics: DiagnosticReport::default(),
+    /// };
+    /// assert_eq!(ts.file(), "test.bix");
+    /// ```
     pub fn file(&self) -> &str {
         &self.file
     }
 
-    pub fn into_parts(self) -> (String, Vec<Token>, String) {
-        (self.source, self.tokens, self.file)
+    /// Accesses the diagnostics collected during tokenization.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let ts = tokenize("", "file.rs");
+    /// let diagnostics = ts.diagnostics();
+    /// ```
+    pub fn diagnostics(&self) -> &DiagnosticReport {
+        &self.diagnostics
+    }
+
+    /// Decomposes the TokenStream into its constituent parts.
+    ///
+    /// Consumes the stream and yields a tuple with the original source string, the produced tokens,
+    /// the file identifier, and the collected diagnostic report.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let ts = tokenize("let a = 1", "main.bix");
+    /// let (source, tokens, file, diagnostics) = ts.into_parts();
+    /// assert_eq!(source, "let a = 1");
+    /// assert_eq!(file, "main.bix");
+    /// ```
+    pub fn into_parts(self) -> (String, Vec<Token>, String, DiagnosticReport) {
+        (self.source, self.tokens, self.file, self.diagnostics)
     }
 }
