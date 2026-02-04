@@ -20,7 +20,7 @@
 
 ## Milestone 3: Emitter
 
-- [ ] Emit Ruby + Sorbet sigs
+- [ ] Emit plain Ruby
 - [ ] Add generated file header
 
 ## Milestone 4: Diagnostics
@@ -28,6 +28,6 @@
 - [ ] Human-readable errors
 - [ ] JSON diagnostics
 
-## Milestone 5: Sorbet integration
+## Milestone 5: Check command
 
-- [ ] `bixbite check --sorbet`
+- [ ] `bixbite check` runs build + diagnostics

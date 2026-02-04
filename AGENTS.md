@@ -22,14 +22,11 @@ Workflow:
 
 ## Architecture rules (do not violate)
 
-Bixbite is designed so Sorbet can be swapped out later without rewriting the frontend.
+Bixbite is designed so the backend can evolve without rewriting the frontend.
 
-- The AST and parser must be Sorbet-agnostic.
-- Sorbet-specific constructs must live ONLY in:
-  - `src/emitter/ruby_sorbet.rs` (emitting `sig { ... }`, `T::Boolean`, etc.)
-  - `src/checker/sorbet.rs` (invoking/handling `srb tc`)
+- The AST and parser must remain backend-agnostic.
 - Core types must remain neutral:
-  - Use `TypeRef` (e.g., Path, Boolean) in AST — never embed Sorbet syntax in AST nodes.
+  - Use `TypeRef` (e.g., Path, Boolean) in AST — never embed backend-specific syntax in AST nodes.
 - All errors must flow through `Diagnostic` with spans and support JSON output (`--format json`).
 
 If you need a new backend later, it should be added by implementing the `Emitter` and/or `TypeChecker` traits without changing the parser/AST.

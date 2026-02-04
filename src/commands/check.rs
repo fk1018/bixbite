@@ -4,9 +4,9 @@ use anyhow::{bail, Result};
 use clap::ValueEnum;
 
 use crate::{
-    checker::{noop::NoopChecker, sorbet::SorbetChecker, TypeChecker},
+    checker::{noop::NoopChecker, TypeChecker},
     diagnostic::{DiagnosticReport, Severity},
-    emitter::ruby_sorbet::RubySorbetEmitter,
+    emitter::ruby::RubyEmitter,
     project::Project,
 };
 
@@ -29,20 +29,15 @@ impl fmt::Display for OutputFormat {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CheckOptions {
-    pub sorbet: bool,
     pub format: OutputFormat,
 }
 
 pub fn run(options: CheckOptions) -> Result<()> {
     let project = Project::load(std::env::current_dir()?)?;
-    let emitter = RubySorbetEmitter;
+    let emitter = RubyEmitter;
     let summary = build::build_project(&project, &emitter)?;
 
-    let checker: Box<dyn TypeChecker> = if options.sorbet {
-        Box::new(SorbetChecker)
-    } else {
-        Box::new(NoopChecker)
-    };
+    let checker: Box<dyn TypeChecker> = Box::new(NoopChecker);
     let report = checker.check(&project)?;
 
     print_diagnostics(&report, options.format)?;

@@ -3,17 +3,17 @@ use std::path::Path;
 use bixbite::{
     ast::CompilationUnit,
     diagnostic::DiagnosticReport,
-    emitter::{ruby_sorbet::RubySorbetEmitter, Emitter},
+    emitter::{ruby::RubyEmitter, Emitter},
 };
 
 #[test]
-fn ruby_sorbet_emitter_adds_header_and_source() {
+fn ruby_emitter_adds_header_and_source() {
     let unit = CompilationUnit::from_source(
         "puts :ok\n".to_owned(),
         Vec::new(),
         DiagnosticReport::default(),
     );
-    let emitter = RubySorbetEmitter;
+    let emitter = RubyEmitter;
 
     let output = emitter.emit(&unit, Path::new("src/example.bixb"));
 

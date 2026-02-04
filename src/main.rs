@@ -15,8 +15,6 @@ struct Cli {
 enum Command {
     Build,
     Check {
-        #[arg(long)]
-        sorbet: bool,
         #[arg(long, value_enum, default_value_t = check::OutputFormat::Human)]
         format: check::OutputFormat,
     },
@@ -27,7 +25,7 @@ fn run() -> Result<()> {
 
     match cli.command {
         Command::Build => build::run(),
-        Command::Check { sorbet, format } => check::run(check::CheckOptions { sorbet, format }),
+        Command::Check { format } => check::run(check::CheckOptions { format }),
     }
 }
 
