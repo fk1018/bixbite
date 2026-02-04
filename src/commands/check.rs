@@ -12,9 +12,12 @@ use crate::{
 
 use super::build;
 
+/// Output format for diagnostic reporting.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum OutputFormat {
+    /// Human-readable diagnostics.
     Human,
+    /// Machine-readable JSON diagnostics.
     Json,
 }
 
@@ -27,11 +30,17 @@ impl fmt::Display for OutputFormat {
     }
 }
 
+/// Options for the `bixbite check` command.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CheckOptions {
+    /// Diagnostic output format.
     pub format: OutputFormat,
 }
 
+/// Runs the `bixbite check` command with the provided options.
+///
+/// This performs a build followed by the configured type checker and emits diagnostics
+/// in the requested format.
 pub fn run(options: CheckOptions) -> Result<()> {
     let project = Project::load(std::env::current_dir()?)?;
     let emitter = RubyEmitter;

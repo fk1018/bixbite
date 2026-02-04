@@ -5,7 +5,10 @@ use crate::{
     types::TypeRef,
 };
 
-/// Parse a token stream and produce a CompilationUnit representing the parsed source.
+/// Parse a token stream and produce a `CompilationUnit` representing the parsed source.
+///
+/// Errors are recorded in the returned unit's diagnostics. Parsing attempts to recover by skipping
+/// to newlines after malformed method signatures, allowing additional methods to be parsed.
 ///
 /// # Examples
 ///

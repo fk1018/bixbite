@@ -4,6 +4,7 @@ use crate::ast::CompilationUnit;
 
 use super::Emitter;
 
+/// Emits Ruby source with the standard Bixbite generated header.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct RubyEmitter;
 
