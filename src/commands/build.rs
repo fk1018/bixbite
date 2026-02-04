@@ -3,7 +3,6 @@ use std::{env, fs, path::Path};
 use anyhow::{Context, Result};
 
 use crate::{
-    diagnostic::Severity,
     emitter::{ruby::RubyEmitter, Emitter},
     lexer, parser,
     project::Project,
@@ -61,7 +60,7 @@ pub fn build_project(project: &Project, emitter: &dyn Emitter) -> Result<BuildSu
         );
         let ast = parser::parse(tokens);
         if !ast.diagnostics.diagnostics.is_empty() {
-            print_diagnostics(&ast.diagnostics);
+            ast.diagnostics.print_human_stderr();
             if ast.diagnostics.has_errors() {
                 anyhow::bail!(
                     "failed to parse {}",
@@ -86,25 +85,4 @@ pub fn build_project(project: &Project, emitter: &dyn Emitter) -> Result<BuildSu
     }
 
     Ok(summary)
-}
-
-fn print_diagnostics(report: &crate::diagnostic::DiagnosticReport) {
-    for diagnostic in &report.diagnostics {
-        let severity = match diagnostic.severity {
-            Severity::Error => "error",
-            Severity::Warn => "warn",
-        };
-        eprintln!(
-            "{}:{}:{}: {} {} ({})",
-            diagnostic.file,
-            diagnostic.span.start.line,
-            diagnostic.span.start.col,
-            severity,
-            diagnostic.message,
-            diagnostic.code
-        );
-        if let Some(suggestion) = &diagnostic.suggestion {
-            eprintln!("  help: {suggestion}");
-        }
-    }
 }

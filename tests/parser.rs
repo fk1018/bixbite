@@ -45,6 +45,18 @@ fn reports_missing_param_types_when_return_typed() {
 }
 
 #[test]
+fn reports_missing_arrow_for_return_type() {
+    let source = "def add(x: Integer)\n";
+    let tokens = lexer::tokenize(source, "src/add.bixb");
+    let unit = parser::parse(tokens);
+
+    assert_eq!(unit.typed_methods.len(), 0);
+    assert_eq!(unit.diagnostics.diagnostics.len(), 1);
+    let diagnostic = &unit.diagnostics.diagnostics[0];
+    assert_eq!(diagnostic.code, "BIX100");
+}
+
+#[test]
 fn parses_boolean_type_and_default() {
     let source = "def greet(name: String, loud: Boolean = false) -> String\n";
     let tokens = lexer::tokenize(source, "src/greet.bixb");
