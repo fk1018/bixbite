@@ -43,7 +43,7 @@ impl Span {
         Self { start, end }
     }
 
-    /// Creates a zero-length span at a single point.
+    /// Creates a single-point span at a given position (inclusive).
     pub const fn point(line: usize, col: usize) -> Self {
         let pos = Pos::new(line, col);
         Self {
