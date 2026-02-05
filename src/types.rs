@@ -1,3 +1,16 @@
+/// Core type reference used in the AST and typed IR.
+///
+/// Invariants:
+/// - `Path` segments are non-empty, trimmed identifiers in source order.
+/// - `Boolean` represents the special-case `Boolean` type allowed in `.bixb` source.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TypeRef {
+    /// A constant path like `String` or `Foo::Bar`.
+    Path(Vec<String>),
+    /// Special-case Boolean type allowed in `.bixb` source.
+    Boolean,
+}
+
 impl TypeRef {
     /// Creates a path type from explicit segments.
     pub fn path(segments: Vec<String>) -> Self {
@@ -15,6 +28,7 @@ impl TypeRef {
 
         let segments: Vec<String> = path
             .split("::")
+            .map(str::trim)
             .filter(|segment| !segment.is_empty())
             .map(str::to_owned)
             .collect();
@@ -33,5 +47,28 @@ impl TypeRef {
     pub fn from_path(path: &str) -> Self {
         Self::try_from_path(path)
             .expect("invalid type path: expected at least one non-empty segment")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::TypeRef;
+
+    #[test]
+    fn test_try_from_path_trims_segments() {
+        assert_eq!(
+            TypeRef::try_from_path(" Integer "),
+            Some(TypeRef::Path(vec!["Integer".into()]))
+        );
+        assert_eq!(
+            TypeRef::try_from_path("::  ::Integer::"),
+            Some(TypeRef::Path(vec!["Integer".into()]))
+        );
+        assert_eq!(TypeRef::try_from_path(":: ::"), None);
+    }
+
+    #[test]
+    fn test_try_from_path_boolean_trim() {
+        assert_eq!(TypeRef::try_from_path(" Boolean "), Some(TypeRef::Boolean));
     }
 }
