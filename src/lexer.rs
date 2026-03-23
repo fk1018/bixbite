@@ -129,6 +129,7 @@ pub fn tokenize(source: &str, file: impl Into<String>) -> TokenStream {
     let mut index = 0;
     line = 1;
     col = 1;
+    let mut lex_signature_line = false;
 
     let mut push_token =
         |kind: TokenKind, start: usize, end: usize, start_pos: Pos, end_pos: Pos| {
@@ -151,7 +152,20 @@ pub fn tokenize(source: &str, file: impl Into<String>) -> TokenStream {
             index += 1;
             line += 1;
             col = 1;
+            lex_signature_line = false;
             continue;
+        }
+
+        if !lex_signature_line {
+            if line_starts_with_def(bytes, index) {
+                lex_signature_line = true;
+            } else {
+                while index < bytes.len() && bytes[index] != b'\n' {
+                    index += 1;
+                    col += 1;
+                }
+                continue;
+            }
         }
 
         if ch.is_whitespace() {
@@ -334,6 +348,23 @@ pub fn tokenize(source: &str, file: impl Into<String>) -> TokenStream {
         tokens,
         file,
         diagnostics,
+    }
+}
+
+fn line_starts_with_def(bytes: &[u8], mut index: usize) -> bool {
+    while let Some(byte) = bytes.get(index) {
+        match *byte {
+            b' ' | b'\t' | b'\r' => index += 1,
+            _ => break,
+        }
+    }
+
+    match bytes.get(index..index + 3) {
+        Some(b"def") => bytes
+            .get(index + 3)
+            .map(|byte| (*byte as char).is_whitespace() || *byte == b'(')
+            .unwrap_or(true),
+        _ => false,
     }
 }
 

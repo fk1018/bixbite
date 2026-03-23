@@ -32,6 +32,12 @@ struct ParsedParam {
     default: Option<String>,
 }
 
+#[derive(Debug, Clone)]
+struct ParsedType {
+    type_ref: TypeRef,
+    byte_end: usize,
+}
+
 struct Parser {
     source: String,
     tokens: Vec<Token>,
@@ -83,15 +89,15 @@ impl Parser {
     fn parse(&mut self) {
         while !self.is_at_end() {
             if self.matches(TokenKind::Def) {
-                self.advance();
-                self.parse_def();
+                let def_token = self.advance().clone();
+                self.parse_def(def_token);
             } else {
                 self.advance();
             }
         }
     }
 
-    fn parse_def(&mut self) {
+    fn parse_def(&mut self, def_token: Token) {
         let mut name = String::new();
         let mut method_span = self.peek_span();
 
@@ -159,7 +165,7 @@ impl Parser {
         }
         self.advance();
 
-        let return_type = match self.parse_type() {
+        let parsed_return_type = match self.parse_type() {
             Some(type_ref) => type_ref,
             None => {
                 self.emit_error(
@@ -172,6 +178,10 @@ impl Parser {
                 return;
             }
         };
+        let ParsedType {
+            type_ref: return_type,
+            byte_end: signature_end,
+        } = parsed_return_type;
 
         let mut has_missing_types = false;
         for param in &params {
@@ -207,6 +217,7 @@ impl Parser {
             name,
             params: typed_params,
             return_type,
+            signature_byte_range: def_token.byte_range.start..signature_end,
         });
     }
 
@@ -238,12 +249,23 @@ impl Parser {
             let mut type_ref = None;
             if self.matches(TokenKind::Colon) {
                 self.advance();
-                type_ref = self.parse_type();
+                type_ref = self.parse_type().map(|parsed| parsed.type_ref);
             }
 
             let default = if self.matches(TokenKind::Eq) {
                 self.advance();
-                Some(self.parse_default_value())
+                let default = self.parse_default_value();
+                if default.is_empty() {
+                    self.emit_error(
+                        "BIX100",
+                        "Expected default value after `=`.",
+                        self.peek_span(),
+                        None,
+                    );
+                    None
+                } else {
+                    Some(default)
+                }
             } else {
                 None
             };
@@ -265,21 +287,27 @@ impl Parser {
         params
     }
 
-    fn parse_type(&mut self) -> Option<TypeRef> {
+    fn parse_type(&mut self) -> Option<ParsedType> {
         let first = self.consume_kind(TokenKind::Const, "Expected type name.")?;
+        let mut byte_end = first.byte_range.end;
         let mut segments = vec![first.lexeme];
         while self.matches(TokenKind::DoubleColon) {
             self.advance();
             match self.consume_kind(TokenKind::Const, "Expected type segment after `::`.") {
-                Some(segment) => segments.push(segment.lexeme),
+                Some(segment) => {
+                    byte_end = segment.byte_range.end;
+                    segments.push(segment.lexeme);
+                }
                 None => break,
             }
         }
-        if segments.len() == 1 && segments[0] == "Boolean" {
-            Some(TypeRef::Boolean)
+        let type_ref = if segments.len() == 1 && segments[0] == "Boolean" {
+            TypeRef::Boolean
         } else {
-            Some(TypeRef::path(segments))
-        }
+            TypeRef::path(segments)
+        };
+
+        Some(ParsedType { type_ref, byte_end })
     }
 
     fn parse_default_value(&mut self) -> String {

@@ -1,0 +1,20 @@
+services:
+  bixbite:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+      - cargo-registry:/cargo/registry
+      - cargo-git:/cargo/git
+      - target-cache:/workspace/target
+    environment:
+      CARGO_HOME: /cargo
+    stdin_open: true
+    tty: true
+
+volumes:
+  cargo-registry:
+  cargo-git:
+  target-cache:

@@ -1,10 +1,12 @@
+use std::ops::Range;
+
 use crate::{diagnostic::DiagnosticReport, types::TypeRef};
 
 /// Parsed representation of a single source file plus any diagnostics found.
 ///
 /// Invariants:
 /// - `source` is the original source text.
-/// - `typed_methods` only contains methods with fully-typed parameters.
+/// - `typed_methods` only contains methods with fully-typed parameters in source order.
 /// - `diagnostics` includes all parser errors and recovery notes.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CompilationUnit {
@@ -43,6 +45,10 @@ pub struct TypedMethod {
     pub params: Vec<TypedParam>,
     /// Declared return type for the method.
     pub return_type: TypeRef,
+    /// Byte range within `CompilationUnit::source` covering the original signature text.
+    ///
+    /// This range starts at the `def` keyword and ends at the final return-type token.
+    pub signature_byte_range: Range<usize>,
 }
 
 /// A parsed method parameter that carries a required type.

@@ -10,6 +10,7 @@ end
     let unit = parser::parse(tokens);
 
     assert_eq!(unit.typed_methods.len(), 1);
+    assert!(unit.diagnostics.diagnostics.is_empty());
     let method = &unit.typed_methods[0];
     assert_eq!(method.name, "add");
     assert_eq!(method.params.len(), 2);

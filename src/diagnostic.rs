@@ -69,6 +69,7 @@ pub struct Diagnostic {
     /// Human-readable message.
     pub message: String,
     /// Source span for the diagnostic.
+    #[serde(rename = "range")]
     pub span: Span,
     /// Optional fix suggestion for editors or humans.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -83,6 +84,11 @@ pub struct DiagnosticReport {
 }
 
 impl DiagnosticReport {
+    /// Returns true if the report does not contain any diagnostics.
+    pub fn is_empty(&self) -> bool {
+        self.diagnostics.is_empty()
+    }
+
     /// Returns true if any diagnostic is an error.
     pub fn has_errors(&self) -> bool {
         self.diagnostics
@@ -90,27 +96,44 @@ impl DiagnosticReport {
             .any(|diagnostic| diagnostic.severity == Severity::Error)
     }
 
-    /// Prints diagnostics in human-readable form to stderr.
-    ///
-    /// This is a lossy formatter intended for CLI output, not machine parsing.
-    pub fn print_human_stderr(&self) {
+    /// Appends diagnostics from another report in order.
+    pub fn extend(&mut self, other: DiagnosticReport) {
+        self.diagnostics.extend(other.diagnostics);
+    }
+
+    /// Renders diagnostics in the human CLI format.
+    pub fn render_human(&self) -> String {
+        let mut output = String::new();
+
         for diagnostic in &self.diagnostics {
             let severity = match diagnostic.severity {
                 Severity::Error => "error",
                 Severity::Warn => "warn",
             };
-            eprintln!(
-                "{}:{}:{}: {} {} ({})",
+            output.push_str(&format!(
+                "{}:{}:{}: {} {} ({})\n",
                 diagnostic.file,
                 diagnostic.span.start.line,
                 diagnostic.span.start.col,
                 severity,
                 diagnostic.message,
                 diagnostic.code
-            );
+            ));
             if let Some(suggestion) = &diagnostic.suggestion {
-                eprintln!("  help: {suggestion}");
+                output.push_str(&format!("  help: {suggestion}\n"));
             }
+        }
+
+        output
+    }
+
+    /// Prints diagnostics in human-readable form to stderr.
+    ///
+    /// This is a lossy formatter intended for CLI output, not machine parsing.
+    pub fn print_human_stderr(&self) {
+        let rendered = self.render_human();
+        if !rendered.is_empty() {
+            eprint!("{rendered}");
         }
     }
 }

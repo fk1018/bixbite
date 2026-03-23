@@ -37,14 +37,37 @@ src/     # .bixb source files
 build/   # generated .rb output (gitignored)
 ```
 
-## Usage (planned)
+## Usage
 
 ```bash
 bixbite build
 bixbite check
+bixbite check --format json
 ```
 
 ## Development
+
+### Docker
+
+Build the local toolchain image:
+
+```bash
+docker compose build bixbite
+```
+
+Run formatting and tests:
+
+```bash
+docker compose run --rm bixbite cargo fmt --all
+docker compose run --rm bixbite cargo test
+```
+
+Run the CLI from the container:
+
+```bash
+docker compose run --rm bixbite cargo run -- build
+docker compose run --rm bixbite cargo run -- check --format json
+```
 
 See:
 
@@ -54,4 +77,4 @@ See:
 
 ---
 
-Bixbite is experimental and under active design.
+Bixbite is an MVP compiler under active development.
