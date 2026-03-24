@@ -107,13 +107,19 @@ fn fixture_root(name: &str) -> PathBuf {
 }
 
 fn expected_text(name: &str, relative_path: &str) -> String {
-    let contents = fs::read_to_string(fixture_root(name).join(relative_path))
-        .expect("fixture snapshot should be readable");
+    let contents = read_expected_snapshot(fixture_root(name).join(relative_path));
     if relative_path.ends_with(".json") {
         contents.trim_end_matches('\n').to_string()
     } else {
         contents
     }
+}
+
+fn read_expected_snapshot(path: impl AsRef<Path>) -> String {
+    fs::read_to_string(path)
+        .expect("fixture snapshot should be readable")
+        .replace("\r\n", "\n")
+        .replace('\r', "\n")
 }
 
 fn copy_tree(source: &Path, destination: &Path) {
@@ -154,8 +160,7 @@ fn assert_tree_matches(actual_root: &Path, expected_root: &Path) {
         expected_files.push(relative.clone());
 
         let actual_path = actual_root.join(&relative);
-        let expected_contents =
-            fs::read_to_string(entry.path()).expect("expected fixture file should be readable");
+        let expected_contents = read_expected_snapshot(entry.path());
         let actual_contents =
             fs::read_to_string(&actual_path).expect("actual generated file should be readable");
         assert_eq!(
