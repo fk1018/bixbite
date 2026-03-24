@@ -1,13 +1,13 @@
 # Bixbite
 
-Bixbite is a typed superset of Ruby that compiles `.bixb` source files into standard Ruby `.rb` files.
+Bixbite is an MVP compiler for a typed superset of Ruby. It compiles `.bixb` source files into standard Ruby `.rb` files that run on CRuby.
 
-It follows a TypeScript-style model:
+Bixbite follows a TypeScript-style model:
 
 - Types exist at development time.
 - Output is normal Ruby.
 - Runtime behavior is unchanged.
-- Types are enforced by the Bixbite compiler during build/check.
+- The MVP validates typed method signatures during `build` and `check`.
 
 ## Example
 
@@ -30,6 +30,33 @@ def add(x, y)
 end
 ```
 
+## MVP v0.1
+
+### Defaults
+
+- Source discovery: `src/**/*.bixb`
+- Output directory: `build/**/*.rb`
+- Config files: `bixbite.toml` or `bixbite.json`
+- Default config when no file is present: `source_dir = "src"`, `out_dir = "build"`
+
+### Supported signatures
+
+- `def name(a: Type, b: Type = default) -> ReturnType`
+- `def self.name(...) -> ReturnType`
+- Parentheses are required in v0.1.
+- Method names may use `foo`, `foo?`, `foo!`, or `foo=`.
+- Parameters are positional and may include default values.
+- Supported type references are Ruby constant paths like `String`, `Integer`, `Foo::Bar`, plus the special-case `Boolean`.
+
+### Current checks
+
+- Lexing and parsing with span-based diagnostics
+- Typed methods with `-> ReturnType` must type every parameter
+- Ruby emission that strips signature type annotations, preserves defaults, and writes deterministic LF output
+- Human-readable diagnostics and machine-readable JSON diagnostics via `bixbite check --format json`
+
+The current `check` command uses the parser-backed MVP rules above plus a noop checker backend. Richer backend type checking is tracked after v0.1.
+
 ## Layout
 
 ```
@@ -37,21 +64,41 @@ src/     # .bixb source files
 build/   # generated .rb output (gitignored)
 ```
 
-## Usage (planned)
+## Usage
 
 ```bash
 bixbite build
 bixbite check
+bixbite check --format json
 ```
 
 ## Development
 
-See:
+### Docker
 
-- `project_handoff.md` for the full spec
+Build the local toolchain image:
+
+```bash
+docker compose build bixbite
+```
+
+Run formatting and tests:
+
+```bash
+docker compose run --rm bixbite cargo fmt --all
+docker compose run --rm bixbite cargo test
+```
+
+Run the CLI from the container:
+
+```bash
+docker compose run --rm bixbite cargo run -- build
+docker compose run --rm bixbite cargo run -- check
+docker compose run --rm bixbite cargo run -- check --format json
+```
+
+Repo docs:
+
+- `README.md` for current MVP behavior and usage
 - `TASKS.md` for milestones
 - `AGENTS.md` for agent workflow rules
-
----
-
-Bixbite is experimental and under active design.

@@ -55,3 +55,15 @@ fn rejects_non_ascii_input_with_single_diagnostic() {
     assert_eq!(tokens.tokens().len(), 1);
     assert_eq!(tokens.tokens()[0].kind, lexer::TokenKind::Eof);
 }
+
+#[test]
+fn ignores_non_signature_body_characters() {
+    let source = "def add(x: Integer, y: Integer) -> Integer\n  @value = x + y\nend\n";
+    let tokens = lexer::tokenize(source, "src/add.bixb");
+
+    assert!(tokens.diagnostics().diagnostics.is_empty());
+
+    let unit = parser::parse(tokens);
+    assert!(unit.diagnostics.diagnostics.is_empty());
+    assert_eq!(unit.typed_methods.len(), 1);
+}

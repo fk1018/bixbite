@@ -1,6 +1,6 @@
 use std::fmt;
 
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 use clap::ValueEnum;
 
 use crate::{
@@ -42,17 +42,28 @@ pub struct CheckOptions {
 /// This performs a build followed by the configured type checker and emits diagnostics
 /// in the requested format.
 pub fn run(options: CheckOptions) -> Result<()> {
-    let project = Project::load(std::env::current_dir()?)?;
+    let project_root = std::env::current_dir().context("failed to determine current directory")?;
+    let project = match Project::load(project_root) {
+        Ok(project) => project,
+        Err(report) => {
+            print_diagnostics(&report, options.format)?;
+            bail!("check failed");
+        }
+    };
     let emitter = RubyEmitter;
-    let summary = build::build_project(&project, &emitter)?;
+    let build_report = build::build_project(&project, &emitter);
+    let summary = build_report.summary;
+    let mut report = build_report.diagnostics;
 
     let checker: Box<dyn TypeChecker> = Box::new(NoopChecker);
-    let report = checker.check(&project)?;
+    if !report.has_errors() {
+        report.extend(checker.check(&project)?);
+    }
 
     print_diagnostics(&report, options.format)?;
 
     if report.has_errors() {
-        bail!("`{}` checker reported errors", checker.name());
+        bail!("check failed");
     }
 
     match options.format {
@@ -75,17 +86,23 @@ pub fn run(options: CheckOptions) -> Result<()> {
     Ok(())
 }
 
-fn print_diagnostics(report: &DiagnosticReport, format: OutputFormat) -> Result<()> {
+/// Renders diagnostics for the selected output format.
+pub fn render_diagnostics(report: &DiagnosticReport, format: OutputFormat) -> Result<String> {
     match format {
-        OutputFormat::Human => {
-            if report.diagnostics.is_empty() {
-                return Ok(());
-            }
-            report.print_human_stderr();
-        }
-        OutputFormat::Json => {
-            println!("{}", json_diagnostics(report)?);
-        }
+        OutputFormat::Human => Ok(report.render_human()),
+        OutputFormat::Json => json_diagnostics(report),
+    }
+}
+
+fn print_diagnostics(report: &DiagnosticReport, format: OutputFormat) -> Result<()> {
+    let rendered = render_diagnostics(report, format)?;
+    if rendered.is_empty() {
+        return Ok(());
+    }
+
+    match format {
+        OutputFormat::Human => eprint!("{rendered}"),
+        OutputFormat::Json => println!("{rendered}"),
     }
 
     Ok(())

@@ -1,0 +1,23 @@
+def add(x: Integer, y: Integer) -> Integer
+  x + y
+end
+
+def greet(name: String, loud: Boolean = false) -> String
+  loud ? name.upcase : name
+end
+
+def self.encode(id: Integer, data: String = "00") -> String
+  "#{id}:#{data}"
+end
+
+def ok?() -> TrueClass
+  true
+end
+
+def set_name=(name: String) -> String
+  @name = name
+end
+
+def   spaced(name  :   String, count:Integer = 1)   ->   String
+  name * count
+end

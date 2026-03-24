@@ -3,7 +3,8 @@
 This project uses AI coding agents.
 
 Source of truth:
-- `project_handoff.md` defines what Bixbite is and what to build.
+- `README.md` defines the current MVP behavior and user-facing contract.
+- `TASKS.md` tracks completion status and next work.
 
 ## Rules
 
@@ -42,11 +43,15 @@ Minimum standard:
   - Otherwise use ```ignore``` with a short illustrative snippet.
 
 Formatting and quality:
+- Run Rust tooling in Docker, not on the host machine.
+- Prefer the repo's Docker Compose service over ad hoc containers.
+- Preferred pattern: `docker compose run --rm bixbite cargo <subcommand>`.
+- Use `docker compose build bixbite` after Docker-related changes or before the first Rust command on a new machine.
 - Run `cargo fmt` after changes.
 - Keep documentation accurate when behavior changes.
 
 ## Workflow
 
-- Read `project_handoff.md` before making changes.
+- Read `README.md` and `TASKS.md` before making changes.
 - Explain what you changed and why.
-- Provide run instructions after changes (e.g., `cargo fmt`, `cargo test`).
+- Provide run instructions after changes using Docker-based commands.
