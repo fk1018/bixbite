@@ -19,7 +19,7 @@ fn build_project_writes_expected_ruby_output() {
     .expect("source file should be written");
 
     let project = Project::load(temp.path()).expect("project should load");
-    let report = build::build_project(&project, &RubyEmitter).expect("build should succeed");
+    let report = build::build_project(&project, &RubyEmitter);
 
     assert!(report.diagnostics.is_empty());
     assert_eq!(report.summary.discovered_files, 1);
@@ -54,8 +54,8 @@ fn build_project_skips_unchanged_outputs() {
 
     let project = Project::load(temp.path()).expect("project should load");
 
-    let first = build::build_project(&project, &RubyEmitter).expect("first build should succeed");
-    let second = build::build_project(&project, &RubyEmitter).expect("second build should succeed");
+    let first = build::build_project(&project, &RubyEmitter);
+    let second = build::build_project(&project, &RubyEmitter);
 
     assert_eq!(first.summary.written_files, 1);
     assert_eq!(second.summary.discovered_files, 1);
@@ -74,7 +74,7 @@ fn build_project_reports_relative_diagnostic_paths_and_does_not_write_invalid_ou
     .expect("source file should be written");
 
     let project = Project::load(temp.path()).expect("project should load");
-    let report = build::build_project(&project, &RubyEmitter).expect("build should complete");
+    let report = build::build_project(&project, &RubyEmitter);
 
     assert!(report.diagnostics.has_errors());
     assert_eq!(report.summary.discovered_files, 1);

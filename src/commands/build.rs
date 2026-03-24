@@ -4,14 +4,16 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{bail, Context, Result};
 
 use crate::{
-    diagnostic::DiagnosticReport,
+    diagnostic::{Diagnostic, DiagnosticReport, Span},
     emitter::{ruby::RubyEmitter, Emitter},
     lexer, parser,
     project::{Project, SourceFile},
 };
+
+const BUILD_IO_ERROR_CODE: &str = "BIX202";
 
 /// Summary of a build invocation.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -33,12 +35,19 @@ pub struct BuildReport {
 
 /// Runs the `bixbite build` command for the current working directory.
 ///
-/// Errors include IO failures and any build diagnostics with error severity.
+/// Errors include failures to resolve the current directory and any build diagnostics
+/// with error severity.
 pub fn run() -> Result<()> {
     let project_root = env::current_dir().context("failed to determine current directory")?;
-    let project = Project::load(project_root)?;
+    let project = match Project::load(project_root) {
+        Ok(project) => project,
+        Err(report) => {
+            report.print_human_stderr();
+            bail!("build failed");
+        }
+    };
     let emitter = RubyEmitter;
-    let report = build_project(&project, &emitter)?;
+    let report = build_project(&project, &emitter);
 
     if !report.diagnostics.is_empty() {
         report.diagnostics.print_human_stderr();
@@ -61,22 +70,43 @@ pub fn run() -> Result<()> {
 /// Builds all source files in the project using the provided emitter.
 ///
 /// Diagnostics are returned to the caller so the command layer can choose the output format.
-pub fn build_project(project: &Project, emitter: &dyn Emitter) -> Result<BuildReport> {
-    project.ensure_out_dir()?;
-    let source_files = project.discover_sources()?;
-    let mut summary = BuildSummary {
-        discovered_files: source_files.len(),
-        written_files: 0,
-    };
+pub fn build_project(project: &Project, emitter: &dyn Emitter) -> BuildReport {
+    let mut summary = BuildSummary::default();
     let mut diagnostics = DiagnosticReport::default();
 
+    if let Err(report) = project.ensure_out_dir() {
+        diagnostics.extend(report);
+        return BuildReport {
+            summary,
+            diagnostics,
+        };
+    }
+
+    let source_files = match project.discover_sources() {
+        Ok(source_files) => source_files,
+        Err(report) => {
+            diagnostics.extend(report);
+            return BuildReport {
+                summary,
+                diagnostics,
+            };
+        }
+    };
+    summary.discovered_files = source_files.len();
+
     for source_file in source_files {
-        let source = fs::read_to_string(&source_file.source_path).with_context(|| {
-            format!(
-                "failed to read source file {}",
-                source_file.source_path.to_string_lossy()
-            )
-        })?;
+        let source = match fs::read_to_string(&source_file.source_path) {
+            Ok(source) => source,
+            Err(error) => {
+                let display_path = relativize_path(project, &source_file.source_path);
+                diagnostics.push(build_io_diagnostic(
+                    project,
+                    &source_file.source_path,
+                    format!("Failed to read source file {}: {}.", display_path, error),
+                ));
+                continue;
+            }
+        };
         let logical_path = logical_source_path(project, &source_file);
         let logical_path_string = normalize_path(&logical_path);
         let tokens = lexer::tokenize(&source, logical_path_string.clone());
@@ -90,15 +120,17 @@ pub fn build_project(project: &Project, emitter: &dyn Emitter) -> Result<BuildRe
         }
 
         let emitted = emitter.emit(&ast, Path::new(&logical_path_string));
-        if write_if_changed(&source_file.output_path, &emitted)? {
-            summary.written_files += 1;
+        match write_if_changed(project, &source_file.output_path, &emitted) {
+            Ok(true) => summary.written_files += 1,
+            Ok(false) => {}
+            Err(report) => diagnostics.extend(report),
         }
     }
 
-    Ok(BuildReport {
+    BuildReport {
         summary,
         diagnostics,
-    })
+    }
 }
 
 fn logical_source_path(project: &Project, source_file: &SourceFile) -> PathBuf {
@@ -109,30 +141,60 @@ fn normalize_path(path: &Path) -> String {
     path.to_string_lossy().replace('\\', "/")
 }
 
-fn write_if_changed(path: &Path, contents: &str) -> Result<bool> {
+fn write_if_changed(
+    project: &Project,
+    path: &Path,
+    contents: &str,
+) -> std::result::Result<bool, DiagnosticReport> {
     match fs::read_to_string(path) {
         Ok(existing) if existing == contents => return Ok(false),
         Ok(_) => {}
         Err(error) if error.kind() == ErrorKind::NotFound => {}
         Err(error) => {
-            return Err(anyhow!(
-                "failed to read {}: {}",
-                path.to_string_lossy(),
-                error
-            ));
+            let display_path = relativize_path(project, path);
+            return Err(DiagnosticReport::single(build_io_diagnostic(
+                project,
+                path,
+                format!("Failed to read {}: {}.", display_path, error),
+            )));
         }
     }
 
     if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent).with_context(|| {
-            format!(
-                "failed to create output subdirectory {}",
-                parent.to_string_lossy()
-            )
-        })?;
+        if let Err(error) = fs::create_dir_all(parent) {
+            let display_path = relativize_path(project, parent);
+            return Err(DiagnosticReport::single(build_io_diagnostic(
+                project,
+                parent,
+                format!(
+                    "Failed to create output subdirectory {}: {}.",
+                    display_path, error
+                ),
+            )));
+        }
     }
 
-    fs::write(path, contents)
-        .with_context(|| format!("failed to write {}", path.to_string_lossy()))?;
+    if let Err(error) = fs::write(path, contents) {
+        let display_path = relativize_path(project, path);
+        return Err(DiagnosticReport::single(build_io_diagnostic(
+            project,
+            path,
+            format!("Failed to write {}: {}.", display_path, error),
+        )));
+    }
+
     Ok(true)
+}
+
+fn build_io_diagnostic(project: &Project, path: &Path, message: String) -> Diagnostic {
+    Diagnostic::error(
+        BUILD_IO_ERROR_CODE,
+        relativize_path(project, path),
+        message,
+        Span::point(1, 1),
+    )
+}
+
+fn relativize_path(project: &Project, path: &Path) -> String {
+    normalize_path(path.strip_prefix(project.root()).unwrap_or(path))
 }

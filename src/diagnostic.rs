@@ -76,6 +76,27 @@ pub struct Diagnostic {
     pub suggestion: Option<String>,
 }
 
+impl Diagnostic {
+    /// Creates an error diagnostic without a fix suggestion.
+    ///
+    /// Callers may attach a suggestion by setting `suggestion` directly when needed.
+    pub fn error(
+        code: impl Into<String>,
+        file: impl Into<String>,
+        message: impl Into<String>,
+        span: Span,
+    ) -> Self {
+        Self {
+            code: code.into(),
+            severity: Severity::Error,
+            file: file.into(),
+            message: message.into(),
+            span,
+            suggestion: None,
+        }
+    }
+}
+
 /// Collection of diagnostics emitted during a compiler phase.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 pub struct DiagnosticReport {
@@ -84,6 +105,13 @@ pub struct DiagnosticReport {
 }
 
 impl DiagnosticReport {
+    /// Creates a report containing a single diagnostic.
+    pub fn single(diagnostic: Diagnostic) -> Self {
+        Self {
+            diagnostics: vec![diagnostic],
+        }
+    }
+
     /// Returns true if the report does not contain any diagnostics.
     pub fn is_empty(&self) -> bool {
         self.diagnostics.is_empty()
@@ -99,6 +127,11 @@ impl DiagnosticReport {
     /// Appends diagnostics from another report in order.
     pub fn extend(&mut self, other: DiagnosticReport) {
         self.diagnostics.extend(other.diagnostics);
+    }
+
+    /// Appends a single diagnostic to the report.
+    pub fn push(&mut self, diagnostic: Diagnostic) {
+        self.diagnostics.push(diagnostic);
     }
 
     /// Renders diagnostics in the human CLI format.

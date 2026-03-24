@@ -1,14 +1,20 @@
 use std::{
     fs,
+    ops::Range,
     path::{Path, PathBuf},
 };
 
-use anyhow::{Context, Result};
 use serde::Deserialize;
 use walkdir::WalkDir;
 
+use crate::diagnostic::{Diagnostic, DiagnosticReport, Pos, Span};
+
 const TOML_FILE: &str = "bixbite.toml";
 const JSON_FILE: &str = "bixbite.json";
+const CONFIG_ERROR_CODE: &str = "BIX200";
+const PROJECT_IO_ERROR_CODE: &str = "BIX201";
+
+type ProjectResult<T> = std::result::Result<T, DiagnosticReport>;
 
 /// Project configuration describing source and output roots.
 ///
@@ -40,8 +46,8 @@ struct RawConfig {
 impl Config {
     /// Loads configuration from `bixbite.toml`, `bixbite.json`, or defaults.
     ///
-    /// Errors reflect IO or parse failures for discovered config files.
-    pub fn load(project_root: &Path) -> Result<Self> {
+    /// Errors are reported as diagnostics for config read or parse failures.
+    pub fn load(project_root: &Path) -> ProjectResult<Self> {
         let toml_path = project_root.join(TOML_FILE);
         if toml_path.exists() {
             return Self::from_toml_file(&toml_path);
@@ -56,27 +62,47 @@ impl Config {
     }
 
     /// Parses configuration from TOML contents.
-    pub fn from_toml_str(contents: &str) -> Result<Self> {
-        let parsed: RawConfig = toml::from_str(contents).context("failed to parse bixbite.toml")?;
-        Ok(Self::from_raw(parsed))
+    pub fn from_toml_str(contents: &str) -> ProjectResult<Self> {
+        toml::from_str(contents)
+            .map(Self::from_raw)
+            .map_err(|error| {
+                config_parse_report(
+                    TOML_FILE,
+                    format!(
+                        "Failed to parse {}: {}.",
+                        TOML_FILE,
+                        flatten_message(error.message())
+                    ),
+                    error
+                        .span()
+                        .map(|range| span_from_byte_range(contents, range))
+                        .unwrap_or_else(|| Span::point(1, 1)),
+                )
+            })
     }
 
     /// Parses configuration from JSON contents.
-    pub fn from_json_str(contents: &str) -> Result<Self> {
-        let parsed: RawConfig =
-            serde_json::from_str(contents).context("failed to parse bixbite.json")?;
-        Ok(Self::from_raw(parsed))
+    pub fn from_json_str(contents: &str) -> ProjectResult<Self> {
+        serde_json::from_str(contents)
+            .map(Self::from_raw)
+            .map_err(|error| {
+                config_parse_report(
+                    JSON_FILE,
+                    format!("Failed to parse {}: {}.", JSON_FILE, error),
+                    Span::point(error.line().max(1), error.column().max(1)),
+                )
+            })
     }
 
-    fn from_toml_file(path: &Path) -> Result<Self> {
+    fn from_toml_file(path: &Path) -> ProjectResult<Self> {
         let contents = fs::read_to_string(path)
-            .with_context(|| format!("failed to read {}", path.to_string_lossy()))?;
+            .map_err(|error| config_read_report(path, error.to_string()))?;
         Self::from_toml_str(&contents)
     }
 
-    fn from_json_file(path: &Path) -> Result<Self> {
+    fn from_json_file(path: &Path) -> ProjectResult<Self> {
         let contents = fs::read_to_string(path)
-            .with_context(|| format!("failed to read {}", path.to_string_lossy()))?;
+            .map_err(|error| config_read_report(path, error.to_string()))?;
         Self::from_json_str(&contents)
     }
 
@@ -112,8 +138,8 @@ pub struct Project {
 impl Project {
     /// Loads a project from the given root directory.
     ///
-    /// Errors reflect configuration discovery or parsing failures.
-    pub fn load(root: impl Into<PathBuf>) -> Result<Self> {
+    /// Errors are reported as diagnostics for configuration discovery or parsing failures.
+    pub fn load(root: impl Into<PathBuf>) -> ProjectResult<Self> {
         let root = root.into();
         let config = Config::load(&root)?;
         Ok(Self { root, config })
@@ -144,13 +170,17 @@ impl Project {
 
     /// Ensures the output directory exists.
     ///
-    /// Errors indicate failures to create the output directory.
-    pub fn ensure_out_dir(&self) -> Result<()> {
+    /// Errors are reported as diagnostics for filesystem failures.
+    pub fn ensure_out_dir(&self) -> ProjectResult<()> {
         let out_root = self.out_root();
-        fs::create_dir_all(&out_root).with_context(|| {
-            format!(
-                "failed to create output directory {}",
-                out_root.to_string_lossy()
+        fs::create_dir_all(&out_root).map_err(|error| {
+            project_io_report(
+                &self.config.out_dir,
+                format!(
+                    "Failed to create output directory {}: {}.",
+                    normalize_path(&self.config.out_dir),
+                    error
+                ),
             )
         })
     }
@@ -159,7 +189,7 @@ impl Project {
     ///
     /// Returns an ordered list of source files. If the source directory does not exist,
     /// the result is an empty list rather than an error.
-    pub fn discover_sources(&self) -> Result<Vec<SourceFile>> {
+    pub fn discover_sources(&self) -> ProjectResult<Vec<SourceFile>> {
         let source_root = self.source_root();
         let out_root = self.out_root();
         if !source_root.exists() {
@@ -168,9 +198,20 @@ impl Project {
 
         let mut files = Vec::new();
         for entry in WalkDir::new(&source_root) {
-            let entry = entry.with_context(|| {
-                format!("failed while walking {}", source_root.to_string_lossy())
-            })?;
+            let entry = match entry {
+                Ok(entry) => entry,
+                Err(error) => {
+                    let path = error.path().unwrap_or(source_root.as_path());
+                    return Err(project_io_report(
+                        relativize_path(self.root(), path),
+                        format!(
+                            "Failed to discover source files under {}: {}.",
+                            normalize_path(&self.config.source_dir),
+                            error
+                        ),
+                    ));
+                }
+            };
             if !entry.file_type().is_file() {
                 continue;
             }
@@ -179,16 +220,19 @@ impl Project {
             }
 
             let source_path = entry.into_path();
-            let relative_path = source_path
-                .strip_prefix(&source_root)
-                .with_context(|| {
-                    format!(
-                        "source file {} is not under source root {}",
-                        source_path.to_string_lossy(),
-                        source_root.to_string_lossy()
-                    )
-                })?
-                .to_path_buf();
+            let relative_path = match source_path.strip_prefix(&source_root) {
+                Ok(relative_path) => relative_path.to_path_buf(),
+                Err(_) => {
+                    return Err(project_io_report(
+                        relativize_path(self.root(), &source_path),
+                        format!(
+                            "Source file {} is not under source root {}.",
+                            normalize_path(&source_path),
+                            normalize_path(&source_root)
+                        ),
+                    ));
+                }
+            };
             let output_path = out_root.join(&relative_path).with_extension("rb");
 
             files.push(SourceFile {
@@ -201,4 +245,73 @@ impl Project {
         files.sort_by(|left, right| left.source_path.cmp(&right.source_path));
         Ok(files)
     }
+}
+
+fn config_read_report(path: &Path, error: String) -> DiagnosticReport {
+    DiagnosticReport::single(Diagnostic::error(
+        CONFIG_ERROR_CODE,
+        config_identifier(path),
+        format!("Failed to read {}: {}.", config_identifier(path), error),
+        Span::point(1, 1),
+    ))
+}
+
+fn config_parse_report(file: &str, error: String, span: Span) -> DiagnosticReport {
+    DiagnosticReport::single(Diagnostic::error(CONFIG_ERROR_CODE, file, error, span))
+}
+
+fn project_io_report(path: impl AsRef<Path>, message: String) -> DiagnosticReport {
+    DiagnosticReport::single(Diagnostic::error(
+        PROJECT_IO_ERROR_CODE,
+        normalize_path(path.as_ref()),
+        message,
+        Span::point(1, 1),
+    ))
+}
+
+fn config_identifier(path: &Path) -> String {
+    path.file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_else(|| normalize_path(path))
+}
+
+fn relativize_path(root: &Path, path: &Path) -> PathBuf {
+    path.strip_prefix(root)
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|_| path.to_path_buf())
+}
+
+fn normalize_path(path: &Path) -> String {
+    path.to_string_lossy().replace('\\', "/")
+}
+
+fn flatten_message(message: &str) -> String {
+    message.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+fn span_from_byte_range(contents: &str, range: Range<usize>) -> Span {
+    let start = byte_index_to_pos(contents, range.start);
+    let end_index = range.end.saturating_sub(1).max(range.start);
+    let end = byte_index_to_pos(contents, end_index);
+    Span::new(start, end)
+}
+
+fn byte_index_to_pos(contents: &str, index: usize) -> Pos {
+    let mut line = 1;
+    let mut col = 1;
+
+    for (offset, ch) in contents.char_indices() {
+        if offset >= index {
+            break;
+        }
+
+        if ch == '\n' {
+            line += 1;
+            col = 1;
+        } else {
+            col += 1;
+        }
+    }
+
+    Pos::new(line, col)
 }

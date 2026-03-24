@@ -12,10 +12,12 @@
 - [x] Generated file header with normalized source paths
 - [x] Human-readable and JSON diagnostic rendering
 - [x] Build output write-only-if-changed behavior
+- [x] Structured diagnostics for config parsing, source discovery, and output setup failures
+- [x] Deterministic LF output across platforms
+- [x] Fixture-based end-to-end tests for the MVP matrix and release error paths
 - [x] Tests covering config parsing, file discovery, lexer/parser behavior, emitter output, build flow, and diagnostic formatting
 
 ## Next Candidates
 
 - [ ] Replace the noop checker with a real static checking backend
-- [ ] Add fixture-based end-to-end command tests once a Rust toolchain is available in CI
 - [ ] Start v0.2 features only after the current MVP behavior is stable

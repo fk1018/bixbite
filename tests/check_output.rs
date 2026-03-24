@@ -22,7 +22,7 @@ fn human_diagnostics_render_with_relative_paths() {
     .expect("source file should be written");
 
     let project = Project::load(temp.path()).expect("project should load");
-    let report = build::build_project(&project, &RubyEmitter).expect("build should complete");
+    let report = build::build_project(&project, &RubyEmitter);
     let rendered = check::render_diagnostics(&report.diagnostics, OutputFormat::Human)
         .expect("human diagnostics should render");
 
@@ -43,7 +43,7 @@ fn json_diagnostics_match_range_shape() {
     .expect("source file should be written");
 
     let project = Project::load(temp.path()).expect("project should load");
-    let report = build::build_project(&project, &RubyEmitter).expect("build should complete");
+    let report = build::build_project(&project, &RubyEmitter);
     let rendered = check::render_diagnostics(&report.diagnostics, OutputFormat::Json)
         .expect("json diagnostics should render");
     let value: serde_json::Value =
