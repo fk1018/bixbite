@@ -1,1 +1,1 @@
-def f(x: Integer, y) -> Integer
+def f(x: Int, y) -> Int

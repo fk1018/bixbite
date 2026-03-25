@@ -19,7 +19,7 @@ Source of truth:
 
 - Keep the AST and parser backend-agnostic.
 - Core language types remain neutral:
-  - Use `TypeRef` (e.g., `Path`, `Boolean`) in AST and typed IR.
+  - Use `TypeRef` (e.g., `Path`, `Primitive`) in AST and typed IR.
   - Do not embed backend-specific syntax or formatting in AST nodes.
 - All errors must flow through `Diagnostic` with spans.
 - Diagnostics must support both machine-readable output (`--format json`) and human output.

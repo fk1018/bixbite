@@ -1,12 +1,12 @@
-def add(x: Integer, y: Integer) -> Integer
+def add(x: Int, y: Int) -> Int
   x + y
 end
 
-def greet(name: String, loud: Boolean = false) -> String
+def greet(name: Str, loud: Bool = false) -> Str
   loud ? name.upcase : name
 end
 
-def self.encode(id: Integer, data: String = "00") -> String
+def self.encode(id: Int, data: Str = "00") -> Str
   "#{id}:#{data}"
 end
 
@@ -14,10 +14,10 @@ def ok?() -> TrueClass
   true
 end
 
-def set_name=(name: String) -> String
+def set_name=(name: Str) -> Str
   @name = name
 end
 
-def   spaced(name  :   String, count:Integer = 1)   ->   String
+def   spaced(name  :   Str, count:Int = 1)   ->   Str
   name * count
 end

@@ -78,12 +78,12 @@ mod tests {
 
     #[test]
     fn test_ruby_emitter_rewrites_typed_signature() {
-        let source = "def add(x: Integer, y: Integer = 1) -> Integer\n  x + y\nend\n";
+        let source = "def add(x: Int, y: Int = 1) -> Int\n  x + y\nend\n";
         let unit = parser::parse(lexer::tokenize(source, "src/add.bixb"));
         let output = RubyEmitter.emit(&unit, Path::new("src/add.bixb"));
 
         assert!(output.contains("def add(x, y = 1)\n  x + y\nend\n"));
-        assert!(!output.contains(": Integer"));
-        assert!(!output.contains("-> Integer"));
+        assert!(!output.contains(": Int"));
+        assert!(!output.contains("-> Int"));
     }
 }

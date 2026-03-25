@@ -1,2 +1,2 @@
-src/bad.bixb:1:19: error Typed method signature requires all params to be typed. (BIX001)
+src/bad.bixb:1:15: error Typed method signature requires all params to be typed. (BIX001)
   help: Add `: Type` to this parameter.

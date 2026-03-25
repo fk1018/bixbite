@@ -14,7 +14,7 @@ Bixbite follows a TypeScript-style model:
 Input (`src/example.bixb`):
 
 ```ruby
-def add(x: Integer, y: Integer) -> Integer
+def add(x: Int, y: Int) -> Int
   x + y
 end
 ```
@@ -46,7 +46,9 @@ end
 - Parentheses are required in v0.1.
 - Method names may use `foo`, `foo?`, `foo!`, or `foo=`.
 - Parameters are positional and may include default values.
-- Supported type references are Ruby constant paths like `String`, `Integer`, `Foo::Bar`, plus the special-case `Boolean`.
+- Bixbite builtin types are `Int`, `Str`, and `Bool`.
+- Ruby spellings like `String`, `Integer`, and `Boolean` are not builtin aliases in signatures.
+- Other type references are constant paths like `Foo::Bar` or `TrueClass`.
 
 ### Current checks
 

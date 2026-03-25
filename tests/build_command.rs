@@ -11,7 +11,7 @@ fn build_project_writes_expected_ruby_output() {
     fs::write(
         source_dir.join("example.bixb"),
         concat!(
-            "def greet(name: String, loud: Boolean = false) -> String\n",
+            "def greet(name: Str, loud: Bool = false) -> Str\n",
             "  name\n",
             "end\n"
         ),
@@ -44,11 +44,7 @@ fn build_project_skips_unchanged_outputs() {
     fs::create_dir_all(&source_dir).expect("source dir should be created");
     fs::write(
         source_dir.join("example.bixb"),
-        concat!(
-            "def add(x: Integer, y: Integer) -> Integer\n",
-            "  x + y\n",
-            "end\n"
-        ),
+        concat!("def add(x: Int, y: Int) -> Int\n", "  x + y\n", "end\n"),
     )
     .expect("source file should be written");
 
@@ -67,11 +63,8 @@ fn build_project_reports_relative_diagnostic_paths_and_does_not_write_invalid_ou
     let temp = tempdir().expect("temp dir should be created");
     let source_dir = temp.path().join("src");
     fs::create_dir_all(&source_dir).expect("source dir should be created");
-    fs::write(
-        source_dir.join("bad.bixb"),
-        "def f(x: Integer, y) -> Integer\n",
-    )
-    .expect("source file should be written");
+    fs::write(source_dir.join("bad.bixb"), "def f(x: Int, y) -> Int\n")
+        .expect("source file should be written");
 
     let project = Project::load(temp.path()).expect("project should load");
     let report = build::build_project(&project, &RubyEmitter);

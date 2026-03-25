@@ -2,7 +2,7 @@ use bixbite::{lexer, parser};
 
 #[test]
 fn reports_unterminated_string_literal() {
-    let source = "def greet(name: String = \"oops) -> String\n";
+    let source = "def greet(name: Str = \"oops) -> Str\n";
     let tokens = lexer::tokenize(source, "src/greet.bixb");
     let diagnostics = tokens.diagnostics();
 
@@ -21,7 +21,7 @@ fn reports_unterminated_string_literal() {
 /// # Examples
 ///
 /// ```
-/// let source = "def add(x: Integer = $) -> Integer\n";
+/// let source = "def add(x: Int = $) -> Int\n";
 /// let tokens = lexer::tokenize(source, "src/add.bixb");
 /// assert_eq!(tokens.diagnostics().diagnostics.len(), 1);
 ///
@@ -31,7 +31,7 @@ fn reports_unterminated_string_literal() {
 /// ```
 #[test]
 fn reports_unknown_character_and_propagates_to_parser() {
-    let source = "def add(x: Integer = $) -> Integer\n";
+    let source = "def add(x: Int = $) -> Int\n";
     let tokens = lexer::tokenize(source, "src/add.bixb");
 
     assert_eq!(tokens.diagnostics().diagnostics.len(), 1);
@@ -43,7 +43,7 @@ fn reports_unknown_character_and_propagates_to_parser() {
 
 #[test]
 fn rejects_non_ascii_input_with_single_diagnostic() {
-    let source = "def café() -> String\n";
+    let source = "def café() -> Str\n";
     let tokens = lexer::tokenize(source, "src/non_ascii.bixb");
     let diagnostics = tokens.diagnostics();
 
@@ -58,7 +58,7 @@ fn rejects_non_ascii_input_with_single_diagnostic() {
 
 #[test]
 fn ignores_non_signature_body_characters() {
-    let source = "def add(x: Integer, y: Integer) -> Integer\n  @value = x + y\nend\n";
+    let source = "def add(x: Int, y: Int) -> Int\n  @value = x + y\nend\n";
     let tokens = lexer::tokenize(source, "src/add.bixb");
 
     assert!(tokens.diagnostics().diagnostics.is_empty());
