@@ -2,7 +2,7 @@ use crate::{
     ast::{CompilationUnit, TypedMethod, TypedParam},
     diagnostic::{Diagnostic, DiagnosticReport, Severity, Span},
     lexer::{Token, TokenKind, TokenStream},
-    types::TypeRef,
+    types::{PrimitiveType, TypeRef},
 };
 
 /// Parse a token stream and produce a `CompilationUnit` representing the parsed source.
@@ -14,7 +14,7 @@ use crate::{
 ///
 /// ```
 /// // Construct a TokenStream from lexer/tokenizer output, then parse it:
-/// // let tokens = TokenStream::from_source("def foo(): -> Boolean {}");
+/// // let tokens = TokenStream::from_source("def foo(): -> Bool {}");
 /// // let unit = parse(tokens);
 /// ```
 pub fn parse(tokens: TokenStream) -> CompilationUnit {
@@ -29,6 +29,7 @@ struct ParsedParam {
     name: String,
     name_span: Span,
     type_ref: Option<TypeRef>,
+    type_error: bool,
     default: Option<String>,
 }
 
@@ -36,6 +37,13 @@ struct ParsedParam {
 struct ParsedType {
     type_ref: TypeRef,
     byte_end: usize,
+}
+
+#[derive(Debug, Clone)]
+enum TypeParseResult {
+    Parsed(ParsedType),
+    Missing,
+    Rejected,
 }
 
 struct Parser {
@@ -64,7 +72,7 @@ impl Parser {
     /// use bixbite::lexer::tokenize;
     /// use bixbite::parser::Parser;
     ///
-    /// let source = "def foo() -> Boolean {}".to_string();
+    /// let source = "def foo() -> Bool {}".to_string();
     /// let tokens = tokenize(&source, "src/lib.bix");
     /// let file = "src/lib.bix".to_string();
     /// let diagnostics = DiagnosticReport::default();
@@ -166,14 +174,18 @@ impl Parser {
         self.advance();
 
         let parsed_return_type = match self.parse_type() {
-            Some(type_ref) => type_ref,
-            None => {
+            TypeParseResult::Parsed(type_ref) => type_ref,
+            TypeParseResult::Missing => {
                 self.emit_error(
                     "BIX100",
                     "Expected return type after `->`.",
                     self.peek_span(),
                     None,
                 );
+                self.skip_to_newline();
+                return;
+            }
+            TypeParseResult::Rejected => {
                 self.skip_to_newline();
                 return;
             }
@@ -184,7 +196,13 @@ impl Parser {
         } = parsed_return_type;
 
         let mut has_missing_types = false;
+        let mut has_type_errors = false;
         for param in &params {
+            if param.type_error {
+                has_type_errors = true;
+                continue;
+            }
+
             if param.type_ref.is_none() {
                 self.diagnostics.diagnostics.push(Diagnostic {
                     code: "BIX001".to_owned(),
@@ -198,7 +216,7 @@ impl Parser {
             }
         }
 
-        if has_missing_types {
+        if has_missing_types || has_type_errors {
             return;
         }
 
@@ -247,9 +265,13 @@ impl Parser {
             };
 
             let mut type_ref = None;
+            let mut type_error = false;
             if self.matches(TokenKind::Colon) {
                 self.advance();
-                type_ref = self.parse_type().map(|parsed| parsed.type_ref);
+                match self.parse_type() {
+                    TypeParseResult::Parsed(parsed) => type_ref = Some(parsed.type_ref),
+                    TypeParseResult::Missing | TypeParseResult::Rejected => type_error = true,
+                }
             }
 
             let default = if self.matches(TokenKind::Eq) {
@@ -274,6 +296,7 @@ impl Parser {
                 name: name_token.lexeme,
                 name_span: name_token.span,
                 type_ref,
+                type_error,
                 default,
             });
 
@@ -287,10 +310,13 @@ impl Parser {
         params
     }
 
-    fn parse_type(&mut self) -> Option<ParsedType> {
-        let first = self.consume_kind(TokenKind::Const, "Expected type name.")?;
+    fn parse_type(&mut self) -> TypeParseResult {
+        let first = match self.consume_kind(TokenKind::Const, "Expected type name.") {
+            Some(token) => token,
+            None => return TypeParseResult::Missing,
+        };
         let mut byte_end = first.byte_range.end;
-        let mut segments = vec![first.lexeme];
+        let mut segments = vec![first.lexeme.clone()];
         while self.matches(TokenKind::DoubleColon) {
             self.advance();
             match self.consume_kind(TokenKind::Const, "Expected type segment after `::`.") {
@@ -298,16 +324,34 @@ impl Parser {
                     byte_end = segment.byte_range.end;
                     segments.push(segment.lexeme);
                 }
-                None => break,
+                None => return TypeParseResult::Missing,
             }
         }
-        let type_ref = if segments.len() == 1 && segments[0] == "Boolean" {
-            TypeRef::Boolean
+
+        if segments.len() == 1 {
+            if let Some(replacement) = legacy_builtin_replacement(&segments[0]) {
+                self.diagnostics.push(Diagnostic {
+                    code: "BIX100".to_owned(),
+                    severity: Severity::Error,
+                    file: self.file.clone(),
+                    message: format!("Legacy builtin type `{}` is not supported.", segments[0]),
+                    span: first.span,
+                    suggestion: Some(format!("Use `{replacement}` instead.")),
+                });
+                return TypeParseResult::Rejected;
+            }
+        }
+
+        let type_ref = if segments.len() == 1 {
+            match PrimitiveType::from_name(&segments[0]) {
+                Some(primitive) => TypeRef::Primitive(primitive),
+                None => TypeRef::path(segments),
+            }
         } else {
             TypeRef::path(segments)
         };
 
-        Some(ParsedType { type_ref, byte_end })
+        TypeParseResult::Parsed(ParsedType { type_ref, byte_end })
     }
 
     fn parse_default_value(&mut self) -> String {
@@ -397,5 +441,14 @@ impl Parser {
 
     fn is_at_end(&self) -> bool {
         matches!(self.peek_kind(), TokenKind::Eof)
+    }
+}
+
+fn legacy_builtin_replacement(name: &str) -> Option<&'static str> {
+    match name {
+        "Integer" => Some("Int"),
+        "String" => Some("Str"),
+        "Boolean" => Some("Bool"),
+        _ => None,
     }
 }

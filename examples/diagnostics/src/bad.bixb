@@ -1,0 +1,3 @@
+def greet(name: Str, loud) -> Str
+  loud ? name.upcase : name
+end

@@ -17,11 +17,7 @@ fn emit(source: &str, path: &str) -> String {
 #[test]
 fn ruby_emitter_adds_header_and_rewrites_typed_def_lines() {
     let output = emit(
-        concat!(
-            "def add(x: Integer, y: Integer) -> Integer\n",
-            "  x + y\n",
-            "end\n"
-        ),
+        concat!("def add(x: Int, y: Int) -> Int\n", "  x + y\n", "end\n"),
         "src/example.bixb",
     );
 
@@ -42,7 +38,7 @@ fn ruby_emitter_adds_header_and_rewrites_typed_def_lines() {
 fn ruby_emitter_preserves_defaults_and_special_method_names() {
     let output = emit(
         concat!(
-            "def self.encode(id: Integer, data: String = \"00\") -> String\n",
+            "def self.encode(id: Int, data: Str = \"00\") -> Str\n",
             "  data\n",
             "end\n",
             "\n",
@@ -50,7 +46,7 @@ fn ruby_emitter_preserves_defaults_and_special_method_names() {
             "  true\n",
             "end\n",
             "\n",
-            "def set_name=(name: String) -> String\n",
+            "def set_name=(name: Str) -> Str\n",
             "  @name = name\n",
             "end\n"
         ),
@@ -60,15 +56,15 @@ fn ruby_emitter_preserves_defaults_and_special_method_names() {
     assert!(output.contains("def self.encode(id, data = \"00\")\n"));
     assert!(output.contains("def ok?()\n"));
     assert!(output.contains("def set_name=(name)\n"));
-    assert!(!output.contains(": Integer"));
-    assert!(!output.contains("-> String"));
+    assert!(!output.contains(": Int"));
+    assert!(!output.contains("-> Str"));
 }
 
 #[test]
 fn ruby_emitter_normalizes_whitespace_by_emitting_canonical_def_lines() {
     let output = emit(
         concat!(
-            "def   greet(name  :   String, loud:Boolean = false)   ->   String\n",
+            "def   greet(name  :   Str, loud:Bool = false)   ->   Str\n",
             "  puts name\n",
             "end\n"
         ),

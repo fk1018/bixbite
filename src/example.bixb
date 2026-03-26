@@ -1,0 +1,17 @@
+def add(x: Int, y: Int) -> Int
+  x + y
+end
+
+def greet(name: Str, loud: Bool = false) -> Str
+  message = "Hello, #{name}"
+  loud ? message.upcase : message
+end
+
+def repeat(text: Str, count: Int = 2) -> Str
+  text * count
+end
+
+puts add(2, 3)
+puts greet("bixbite")
+puts greet("bixbite", true)
+puts repeat("ha", 3)
